@@ -51,25 +51,36 @@ class homogeneousMixture
 :
     public basicCombustionMixture
 {
-    // Private Data
-
-        static const int nSpecies_ = 1;
-        static const char* specieNames_[1];
-
-        ThermoType reactants_;
-        ThermoType products_;
-
-        mutable ThermoType mixture_;
-
-        //- Regress variable
-        volScalarField& b_;
-
 
 public:
 
     //- The type of thermodynamics this mixture is instantiated for
     typedef ThermoType thermoType;
 
+    //- Mixing type for thermodynamic properties
+    typedef ThermoType thermoMixtureType;
+
+    //- Mixing type for transport properties
+    typedef ThermoType transportMixtureType;
+
+
+private:
+
+    // Private Data
+
+        static const int nSpecies_ = 1;
+        static const char* specieNames_[1];
+
+        thermoType reactants_;
+        thermoType products_;
+
+        mutable thermoType mixture_;
+
+        //- Regress variable
+        volScalarField& b_;
+
+
+public:
 
     // Constructors
 
@@ -93,14 +104,14 @@ public:
             return "homogeneousMixture<" + ThermoType::typeName() + '>';
         }
 
-        const ThermoType& mixture(const scalar) const;
+        const thermoType& mixture(const scalar) const;
 
-        const ThermoType& cellMixture(const label celli) const
+        const thermoMixtureType& cellThermoMixture(const label celli) const
         {
             return mixture(b_[celli]);
         }
 
-        const ThermoType& patchFaceMixture
+        const transportMixtureType& patchFaceThermoMixture
         (
             const label patchi,
             const label facei
@@ -109,22 +120,58 @@ public:
             return mixture(b_.boundaryField()[patchi][facei]);
         }
 
-        const ThermoType& cellReactants(const label) const
+        const transportMixtureType& cellTransportMixture
+        (
+            const label celli
+        ) const
+        {
+            return cellThermoMixture(celli);
+        }
+
+        const transportMixtureType& patchFaceTransportMixture
+        (
+            const label patchi,
+            const label facei
+        ) const
+        {
+            return patchFaceThermoMixture(patchi, facei);
+        }
+
+        const transportMixtureType& cellTransportMixture
+        (
+            const label,
+            const thermoMixtureType& thermoMixture
+        ) const
+        {
+            return thermoMixture;
+        }
+
+        const transportMixtureType& patchFaceTransportMixture
+        (
+            const label,
+            const label,
+            const thermoMixtureType& thermoMixture
+        ) const
+        {
+            return thermoMixture;
+        }
+
+        const thermoType& cellReactants(const label) const
         {
             return reactants_;
         }
 
-        const ThermoType& patchFaceReactants(const label, const label) const
+        const thermoType& patchFaceReactants(const label, const label) const
         {
             return reactants_;
         }
 
-        const ThermoType& cellProducts(const label) const
+        const thermoType& cellProducts(const label) const
         {
             return products_;
         }
 
-        const ThermoType& patchFaceProducts(const label, const label) const
+        const thermoType& patchFaceProducts(const label, const label) const
         {
             return products_;
         }

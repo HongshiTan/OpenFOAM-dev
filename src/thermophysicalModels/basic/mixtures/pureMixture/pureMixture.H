@@ -51,16 +51,27 @@ class pureMixture
 :
     public basicMixture
 {
-    // Private Data
-
-        ThermoType mixture_;
-
 
 public:
 
     //- The type of thermodynamics this mixture is instantiated for
     typedef ThermoType thermoType;
 
+    //- Mixing type for thermodynamic properties
+    typedef ThermoType thermoMixtureType;
+
+    //- Mixing type for transport properties
+    typedef ThermoType transportMixtureType;
+
+
+private:
+
+    // Private Data
+
+        ThermoType mixture_;
+
+
+public:
 
     // Constructors
 
@@ -79,17 +90,12 @@ public:
             return "pureMixture<" + ThermoType::typeName() + '>';
         }
 
-        const ThermoType& mixture() const
+        const thermoMixtureType& cellThermoMixture(const label) const
         {
             return mixture_;
         }
 
-        const ThermoType& cellMixture(const label) const
-        {
-            return mixture_;
-        }
-
-        const ThermoType& patchFaceMixture
+        const thermoMixtureType& patchFaceThermoMixture
         (
             const label,
             const label
@@ -98,22 +104,34 @@ public:
             return mixture_;
         }
 
-        const ThermoType& cellVolMixture
+        const transportMixtureType& cellTransportMixture(const label) const
+        {
+            return mixture_;
+        }
+
+        const transportMixtureType& patchFaceTransportMixture
         (
-            const scalar,
-            const scalar,
+            const label,
             const label
         ) const
         {
             return mixture_;
         }
 
-        const ThermoType& patchFaceVolMixture
+        const transportMixtureType& cellTransportMixture
         (
-            const scalar,
-            const scalar,
             const label,
-            const label
+            const thermoMixtureType&
+        ) const
+        {
+            return mixture_;
+        }
+
+        const transportMixtureType& patchFaceTransportMixture
+        (
+            const label,
+            const label,
+            const thermoMixtureType&
         ) const
         {
             return mixture_;
