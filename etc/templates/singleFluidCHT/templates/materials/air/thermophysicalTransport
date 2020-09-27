@@ -10,39 +10,17 @@ FoamFile
     version     2.0;
     format      ascii;
     class       dictionary;
-    location    "system/solid";
-    object      fvSchemes;
+    location    "constant";
+    object      thermophysicalTransport;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-ddtSchemes
+RAS
 {
-    default         steadyState;
+    model           eddyDiffusivity;
+
+    Prt             0.85;
 }
 
-gradSchemes
-{
-    default         Gauss linear;
-}
-
-divSchemes
-{
-    default         none;
-}
-
-laplacianSchemes
-{
-    default         Gauss linear corrected;
-}
-
-interpolationSchemes
-{
-    default         linear;
-}
-
-snGradSchemes
-{
-    default         corrected;
-}
 
 // ************************************************************************* //

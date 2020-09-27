@@ -53,13 +53,11 @@ SourceFiles
 #include "entry.H"
 #include "IDLList.H"
 #include "DLList.H"
-#include "fileName.H"
-#include "ITstream.H"
 #include "HashTable.H"
-#include "wordList.H"
+#include "ITstream.H"
+#include "wordReList.H"
+#include "Pair.H"
 #include "className.H"
-
-#include "VectorSpace.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -465,6 +463,16 @@ public:
             //  otherwise return this dictionary
             const dictionary& optionalSubDict(const word&) const;
 
+            //- Find and return a sub-dictionary by scoped lookup
+            //  i.e. the keyword may contain scope characters.
+            //  If the keyword is null this dictionary is returned
+            const dictionary& scopedDict(const word&) const;
+
+            //- Find and return a sub-dictionary by scoped lookup
+            //  i.e. the keyword may contain scope characters.
+            //  If the keyword is null this dictionary is returned
+            dictionary& scopedDict(const word&);
+
             //- Return the table of contents
             wordList toc() const;
 
@@ -624,6 +632,18 @@ dictionary operator|(const dictionary& dict1, const dictionary& dict2);
 
 
 // Global Functions
+
+//- Parse dictionary substitution argument list
+void dictArgList
+(
+    const string& funcArgs,
+    word& funcName,
+    wordReList& args,
+    List<Tuple2<word, string>>& namedArgs
+);
+
+//- Extracts dict name and keyword
+Pair<word> dictAndKeyword(const word& scopedName);
 
 //- Write a dictionary entry
 void writeEntry(Ostream& os, const dictionary& dict);
