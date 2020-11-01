@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,60 +25,34 @@ License
 
 #include "Reaction.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-namespace Foam
-{
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class ReactionThermo>
-inline const word& Reaction<ReactionThermo>::name() const
-{
-    return name_;
-}
-
-
-template<class ReactionThermo>
-inline scalar Reaction<ReactionThermo>::Tlow() const
+inline Foam::scalar Foam::Reaction<ReactionThermo>::Tlow() const
 {
     return Tlow_;
 }
 
 
 template<class ReactionThermo>
-inline scalar Reaction<ReactionThermo>::Thigh() const
+inline Foam::scalar Foam::Reaction<ReactionThermo>::Thigh() const
 {
     return Thigh_;
-}
-
-
-template<class ReactionThermo>
-inline const List<specieCoeffs>& Reaction<ReactionThermo>::lhs() const
-{
-    return lhs_;
-}
-
-
-template<class ReactionThermo>
-inline const List<specieCoeffs>& Reaction<ReactionThermo>::rhs() const
-{
-    return rhs_;
 }
 
 
 // * * * * * * * * * * * * * * * Ostream Operator  * * * * * * * * * * * * * //
 
 template<class ReactionThermo>
-inline Ostream& operator<<(Ostream& os, const Reaction<ReactionThermo>& r)
+inline Foam::Ostream& Foam::operator<<
+(
+    Ostream& os,
+    const Reaction<ReactionThermo>& r
+)
 {
     r.write(os);
     return os;
 }
 
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace Foam
 
 // ************************************************************************* //

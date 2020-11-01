@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,29 +23,23 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "fieldExpression.H"
+#include "EulerImplicit.H"
 
-// * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
+#include "StandardChemistryModel.H"
+#include "TDACChemistryModel.H"
 
-template<class Type>
-bool Foam::functionObjects::fieldExpression::foundObject
-(
-    const word& name
-)
+#include "forCommonGases.H"
+#include "forCommonLiquids.H"
+#include "forPolynomials.H"
+#include "makeChemistrySolver.H"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+namespace Foam
 {
-    if (fvMeshFunctionObject::foundObject<Type>(name))
-    {
-        return true;
-    }
-    else
-    {
-        Warning
-            << "    functionObjects::" << type() << " " << this->name()
-            << " cannot find required object " << name << " of type "
-            << Type::typeName << endl;
-
-        return false;
-    }
+    forCommonGases(makeChemistrySolvers, EulerImplicit);
+    forCommonLiquids(makeChemistrySolvers, EulerImplicit);
+    forPolynomials(makeChemistrySolvers, EulerImplicit);
 }
 
 
