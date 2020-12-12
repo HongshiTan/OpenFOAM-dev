@@ -24,11 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "Time.H"
-#include "PstreamReduceOps.H"
 #include "argList.H"
-#include "IOdictionary.H"
-
-#include <sstream>
 
 // * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * * //
 
@@ -88,12 +84,15 @@ void Foam::Time::adjustDeltaT()
         max
         (
             0,
-            (writeTimeIndex_ + 1)*writeInterval_ - (value() - startTime_)
+            (writeTimeIndex_ + 1)*writeInterval_ - (value() - beginTime_)
         ),
         functionObjects_.timeToNextWrite()
     );
 
+    Info << "timeToNextWrite " << timeToNextWrite << endl;
+
     const scalar nSteps = timeToNextWrite/deltaT_;
+    Info << "nSteps " << nSteps << endl;
 
     // Ensure nStepsToNextWrite does not overflow
     if (nSteps < labelMax)
@@ -101,7 +100,11 @@ void Foam::Time::adjustDeltaT()
         // Allow the time-step to increase by up to 1%
         // to accommodate the next write time before splitting
         const label nStepsToNextWrite = label(max(nSteps, 1) + 0.99);
+
+        Info << "nStepsToNextWrite " << nStepsToNextWrite << endl;
+
         deltaT_ = timeToNextWrite/nStepsToNextWrite;
+        Info << "deltaT " << deltaT_ << endl;
     }
 }
 
@@ -249,6 +252,8 @@ void Foam::Time::setControls()
         )
     );
 
+    beginTime_ = timeDict.lookupOrDefault("beginTime", startTime_);
+
     // Read and set the deltaT only if time-step adjustment is active
     // otherwise use the deltaT from the controlDict
     if (controlDict_.lookupOrDefault<Switch>("adjustTimeStep", false))
@@ -265,6 +270,23 @@ void Foam::Time::setControls()
     if (timeDict.readIfPresent("index", startTimeIndex_))
     {
         timeIndex_ = startTimeIndex_;
+    }
+
+    // Set writeTimeIndex_ to correspond to beginTime_ for restarted cases
+    if
+    (
+        restart()
+     && (
+            writeControl_ == writeControl::runTime
+         || writeControl_ == writeControl::adjustableRunTime
+        )
+    )
+    {
+        writeTimeIndex_ = label
+        (
+            ((value() - beginTime_) + 0.5*deltaT_)
+          / writeInterval_
+        );
     }
 
 
@@ -348,6 +370,7 @@ Foam::Time::Time
     startTimeIndex_(0),
     startTime_(0),
     endTime_(0),
+    beginTime_(startTime_),
 
     stopAt_(stopAtControl::endTime),
     writeControl_(writeControl::timeStep),
@@ -416,6 +439,7 @@ Foam::Time::Time
     startTimeIndex_(0),
     startTime_(0),
     endTime_(0),
+    beginTime_(startTime_),
 
     stopAt_(stopAtControl::endTime),
     writeControl_(writeControl::timeStep),
@@ -445,6 +469,32 @@ Foam::Time::Time
     // Explicitly set read flags on objectRegistry so anything constructed
     // from it reads as well (e.g. fvSolution).
     readOpt() = IOobject::MUST_READ_IF_MODIFIED;
+
+    if (args.options().found("case"))
+    {
+        const wordList switchSets
+        (
+            {
+                "InfoSwitches",
+                "OptimisationSwitches",
+                "DebugSwitches",
+                "DimensionedConstants",
+                "DimensionSets"
+            }
+        );
+
+        forAll(switchSets, i)
+        {
+            if (controlDict_.found(switchSets[i]))
+            {
+                IOWarningInFunction(controlDict_)
+                    << switchSets[i]
+                    << " in system/controlDict are only processed if "
+                    << args.executable() << " is run in the "
+                    << args.path() << " directory" << endl;
+            }
+        }
+    }
 
     setControls();
 
@@ -491,6 +541,7 @@ Foam::Time::Time
     startTimeIndex_(0),
     startTime_(0),
     endTime_(0),
+    beginTime_(startTime_),
 
     stopAt_(stopAtControl::endTime),
     writeControl_(writeControl::timeStep),
@@ -558,6 +609,7 @@ Foam::Time::Time
     startTimeIndex_(0),
     startTime_(0),
     endTime_(0),
+    beginTime_(startTime_),
 
     stopAt_(stopAtControl::endTime),
     writeControl_(writeControl::timeStep),
@@ -741,6 +793,12 @@ Foam::label Foam::Time::findClosestTimeIndex
 Foam::label Foam::Time::startTimeIndex() const
 {
     return startTimeIndex_;
+}
+
+
+Foam::dimensionedScalar Foam::Time::beginTime() const
+{
+    return dimensionedScalar("beginTime", dimTime, beginTime_);
 }
 
 
@@ -1038,7 +1096,7 @@ Foam::Time& Foam::Time::operator++()
             {
                 label writeIndex = label
                 (
-                    ((value() - startTime_) + 0.5*deltaT_)
+                    ((value() - beginTime_) + 0.5*deltaT_)
                   / writeInterval_
                 );
 

@@ -23,15 +23,15 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "None.H"
 #include "Constant.H"
 #include "Uniform.H"
 #include "ZeroConstant.H"
 #include "OneConstant.H"
-#include "PolynomialEntry.H"
+#include "Polynomial1.H"
 #include "Sine.H"
 #include "Square.H"
 #include "Table.H"
-#include "TableFile.H"
 #include "Scale.H"
 #include "CodedFunction1.H"
 
@@ -51,23 +51,10 @@ const Foam::wordList Foam::CodedBase<Foam::Function1s::coded>::codeKeys_ =
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define makeFunction1s(Type)                                                   \
-    makeFunction1(Type);                                                       \
-    makeFunction1Type(Constant, Type);                                         \
-    makeFunction1Type(Uniform, Type);                                          \
-    makeFunction1Type(ZeroConstant, Type);                                     \
-    makeFunction1Type(OneConstant, Type);                                      \
-    makeFunction1Type(Polynomial, Type);                                       \
-    makeFunction1Type(Sine, Type);                                             \
-    makeFunction1Type(Square, Type);                                           \
-    makeFunction1Type(Table, Type);                                            \
-    makeFunction1Type(TableFile, Type);                                        \
-    makeFunction1Type(Scale, Type);                                            \
-    makeFunction1Type(Coded, Type);
-
 namespace Foam
 {
     makeFunction1(label);
+    makeFunction1Type(None, label);
     makeFunction1Type(Constant, label);
 
     makeFunction1s(scalar);
