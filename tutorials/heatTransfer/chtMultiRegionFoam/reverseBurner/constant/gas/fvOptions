@@ -15,28 +15,36 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-options
+ignition
 {
-    energySource
+    type            semiImplicitSource;
+
+    selectionMode   cellSet;
+    cellSet         ignition;
+
+    volumeMode      specific;
+
+    sources
     {
-        type            semiImplicitSource;
-
-        timeStart       0;
-        duration        1;
-        selectionMode   cellSet;
-        cellSet         ignition;
-        volumeMode      specific;
-
-        sources
+        h
         {
-            h
+            explicit
             {
-                explicit    5e7; // kg/m/s^3
-                implicit    0;
+                type        scale;
+                scale       squarePulse;
+                start       0;
+                duration    1;
+                value       5e7; // kg/m/s^3
             }
+            implicit    0;
         }
     }
 }
 
+radiation
+{
+    type    radiation;
+    libs    ("libradiationModels.so");
+}
 
 // ************************************************************************* //

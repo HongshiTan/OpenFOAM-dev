@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -135,17 +135,56 @@ void Foam::diameterModels::velocityGroup::scale()
 }
 
 
-// * * * * * * * * * * * * Protected Member Functions * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::tmp<Foam::volScalarField>
-Foam::diameterModels::velocityGroup::calcD() const
+Foam::diameterModels::velocityGroup::velocityGroup
+(
+    const dictionary& diameterProperties,
+    const phaseModel& phase
+)
+:
+    diameterModel(diameterProperties, phase),
+    popBalName_(diameterProperties.lookup("populationBalance")),
+    f_
+    (
+        IOobject
+        (
+            IOobject::groupName
+            (
+                "f",
+                phase.name()
+            ),
+            phase.time().timeName(),
+            phase.mesh(),
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        phase.mesh()
+    ),
+    sizeGroups_
+    (
+        diameterProperties.lookup("sizeGroups"),
+        sizeGroup::iNew(phase, *this)
+    ),
+    d_(IOobject::groupName("d", phase.name()), dsm())
+{}
+
+
+// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
+
+Foam::diameterModels::velocityGroup::~velocityGroup()
+{}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+Foam::tmp<Foam::volScalarField> Foam::diameterModels::velocityGroup::d() const
 {
     return d_;
 }
 
 
-Foam::tmp<Foam::volScalarField>
-Foam::diameterModels::velocityGroup::calcA() const
+Foam::tmp<Foam::volScalarField> Foam::diameterModels::velocityGroup::a() const
 {
     tmp<volScalarField> tA
     (
@@ -169,55 +208,6 @@ Foam::diameterModels::velocityGroup::calcA() const
     return phase()*a;
 }
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::diameterModels::velocityGroup::velocityGroup
-(
-    const dictionary& diameterProperties,
-    const phaseModel& phase
-)
-:
-    diameterModel(diameterProperties, phase),
-    popBalName_(diameterProperties.lookup("populationBalance")),
-    f_
-    (
-        IOobject
-        (
-            IOobject::groupName
-            (
-                "f",
-                IOobject::groupName
-                (
-                    phase.name(),
-                    popBalName_
-                )
-            ),
-            phase.time().timeName(),
-            phase.mesh(),
-            IOobject::MUST_READ,
-            IOobject::AUTO_WRITE
-        ),
-        phase.mesh()
-    ),
-    sizeGroups_
-    (
-        diameterProperties.lookup("sizeGroups"),
-        sizeGroup::iNew(phase, *this)
-    ),
-    d_(dRef())
-{
-    d_ = dsm();
-}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::diameterModels::velocityGroup::~velocityGroup()
-{}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 void Foam::diameterModels::velocityGroup::correct()
 {

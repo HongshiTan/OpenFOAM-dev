@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,30 +23,36 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-template<class Type>
+template<class Type, class ... AlphaRhoFieldTypes>
 Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::source
 (
     GeometricField<Type, fvPatchField, volMesh>& field,
     const word& fieldName,
-    const dimensionSet& ds
+    const dimensionSet& ds,
+    const AlphaRhoFieldTypes& ... alphaRhos
 ) const
 {
     checkApplied();
 
-    tmp<fvMatrix<Type>> tmtx(new fvMatrix<Type>(field, ds));
+    tmp<fvMatrix<Type>> tmtx
+    (
+        new fvMatrix<Type>
+        (
+            field,
+            option::sourceDims(field, ds, alphaRhos ...)
+        )
+    );
     fvMatrix<Type>& mtx = tmtx.ref();
 
     forAll(*this, i)
     {
         const option& source = this->operator[](i);
 
-        label fieldi = source.applyToField(fieldName);
-
-        if (fieldi != -1)
+        if (source.addsSupToField(fieldName))
         {
-            source.setApplied(fieldi);
+            addSupFields_[i].insert(fieldName);
 
             if (debug)
             {
@@ -54,13 +60,15 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::source
                     << fieldName << endl;
             }
 
-            source.addSup(mtx, fieldi);
+            source.addSup(alphaRhos ..., mtx, fieldName);
         }
     }
 
     return tmtx;
 }
 
+
+// * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::operator()
@@ -79,7 +87,7 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::operator()
     const word& fieldName
 ) const
 {
-    return source(field, fieldName, field.dimensions()/dimTime*dimVolume);
+    return source(field, fieldName, dimVolume/dimTime);
 }
 
 
@@ -102,37 +110,7 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::operator()
     const word& fieldName
 ) const
 {
-    checkApplied();
-
-    const dimensionSet ds
-    (
-        rho.dimensions()*field.dimensions()/dimTime*dimVolume
-    );
-
-    tmp<fvMatrix<Type>> tmtx(new fvMatrix<Type>(field, ds));
-    fvMatrix<Type>& mtx = tmtx.ref();
-
-    forAll(*this, i)
-    {
-        const option& source = this->operator[](i);
-
-        label fieldi = source.applyToField(fieldName);
-
-        if (fieldi != -1)
-        {
-            source.setApplied(fieldi);
-
-            if (debug)
-            {
-                Info<< "Applying source " << source.name() << " to field "
-                    << fieldName << endl;
-            }
-
-            source.addSup(rho, mtx, fieldi);
-        }
-    }
-
-    return tmtx;
+    return source(field, fieldName, dimVolume/dimTime, rho);
 }
 
 
@@ -157,38 +135,7 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::operator()
     const word& fieldName
 ) const
 {
-    checkApplied();
-
-    const dimensionSet ds
-    (
-        alpha.dimensions()*rho.dimensions()*field.dimensions()
-       /dimTime*dimVolume
-    );
-
-    tmp<fvMatrix<Type>> tmtx(new fvMatrix<Type>(field, ds));
-    fvMatrix<Type>& mtx = tmtx.ref();
-
-    forAll(*this, i)
-    {
-        const option& source = this->operator[](i);
-
-        label fieldi = source.applyToField(fieldName);
-
-        if (fieldi != -1)
-        {
-            source.setApplied(fieldi);
-
-            if (debug)
-            {
-                Info<< "Applying source " << source.name() << " to field "
-                    << fieldName << endl;
-            }
-
-            source.addSup(alpha, rho, mtx, fieldi);
-        }
-    }
-
-    return tmtx;
+    return source(field, fieldName, dimVolume/dimTime, alpha, rho);
 }
 
 
@@ -243,6 +190,8 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::operator()
 }
 
 
+// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+
 template<class Type>
 Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::d2dt2
 (
@@ -260,7 +209,7 @@ Foam::tmp<Foam::fvMatrix<Type>> Foam::fv::optionList::d2dt2
     const word& fieldName
 ) const
 {
-    return source(field, fieldName, field.dimensions()/sqr(dimTime)*dimVolume);
+    return source(field, fieldName, dimVolume/sqr(dimTime));
 }
 
 
@@ -271,28 +220,26 @@ void Foam::fv::optionList::constrain(fvMatrix<Type>& eqn) const
 
     forAll(*this, i)
     {
-        const option& source = this->operator[](i);
+        const option& constraint = this->operator[](i);
 
-        label fieldi = source.applyToField(eqn.psi().name());
-
-        if (fieldi != -1)
+        if (constraint.constrainsField(eqn.psi().name()))
         {
-            source.setApplied(fieldi);
+            constrainedFields_[i].insert(eqn.psi().name());
 
             if (debug)
             {
-                Info<< "Applying constraint " << source.name()
+                Info<< "Applying constraint " << constraint.name()
                     << " to field " << eqn.psi().name() << endl;
             }
 
-            source.constrain(eqn, fieldi);
+            constraint.constrain(eqn, eqn.psi().name());
         }
     }
 }
 
 
 template<class Type>
-void Foam::fv::optionList::correct
+void Foam::fv::optionList::constrain
 (
     GeometricField<Type, fvPatchField, volMesh>& field
 ) const
@@ -301,21 +248,19 @@ void Foam::fv::optionList::correct
 
     forAll(*this, i)
     {
-        const option& source = this->operator[](i);
+        const option& constraint = this->operator[](i);
 
-        label fieldi = source.applyToField(fieldName);
-
-        if (fieldi != -1)
+        if (constraint.constrainsField(fieldName))
         {
-            source.setApplied(fieldi);
+            constrainedFields_[i].insert(fieldName);
 
             if (debug)
             {
-                Info<< "Correcting source " << source.name()
+                Info<< "Applying constraint " << constraint.name()
                     << " for field " << fieldName << endl;
             }
 
-            source.correct(field);
+            constraint.constrain(field);
         }
     }
 }

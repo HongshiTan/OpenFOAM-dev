@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2020-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,7 @@ License
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template <class PrimitiveType>
+template<class PrimitiveType>
 Foam::objectFunction1::objectFunction1
 (
     const word& name,
@@ -44,13 +44,14 @@ Foam::objectFunction1::objectFunction1
 
 // * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
 
-template <template <class> class ObjectType>
+template<template<class> class ObjectType>
 Foam::autoPtr<Foam::objectFunction1> Foam::objectFunction1::New
 (
     const word& name,
     const dictionary& dict,
     const word& objectName,
-    const objectRegistry& db
+    const objectRegistry& db,
+    const bool error
 )
 {
     autoPtr<objectFunction1> ptr
@@ -68,7 +69,7 @@ Foam::autoPtr<Foam::objectFunction1> Foam::objectFunction1::New
       : nullptr
     );
 
-    if (!ptr.valid())
+    if (error && !ptr.valid())
     {
         // Spit lookup error
         db.lookupObject<regIOobject>(objectName);
@@ -78,15 +79,9 @@ Foam::autoPtr<Foam::objectFunction1> Foam::objectFunction1::New
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::objectFunction1::~objectFunction1()
-{}
-
-
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template <class PrimitiveType>
+template<class PrimitiveType>
 PrimitiveType Foam::objectFunction1::value
 (
     const scalar x
@@ -96,7 +91,7 @@ PrimitiveType Foam::objectFunction1::value
 }
 
 
-template <class PrimitiveType>
+template<class PrimitiveType>
 Foam::tmp<Foam::Field<PrimitiveType>> Foam::objectFunction1::value
 (
     const scalarField& x
@@ -106,7 +101,7 @@ Foam::tmp<Foam::Field<PrimitiveType>> Foam::objectFunction1::value
 }
 
 
-template <class PrimitiveType>
+template<class PrimitiveType>
 PrimitiveType Foam::objectFunction1::integral
 (
     const scalar x1,
@@ -117,7 +112,7 @@ PrimitiveType Foam::objectFunction1::integral
 }
 
 
-template <class PrimitiveType>
+template<class PrimitiveType>
 Foam::tmp<Foam::Field<PrimitiveType>> Foam::objectFunction1::integral
 (
     const scalarField& x1,

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -369,16 +369,16 @@ inline void Foam::tmp<T>::operator=(const tmp<T>& t)
 
     if (t.isAnyTmp())
     {
+        // if (!t.ptr_)
+        // {
+        //     FatalErrorInFunction
+        //         << "Attempted assignment to a deallocated " << typeName()
+        //         << abort(FatalError);
+        // }
+
         type_ = t.type_;
-
-        if (!t.ptr_)
-        {
-            FatalErrorInFunction
-                << "Attempted assignment to a deallocated " << typeName()
-                << abort(FatalError);
-        }
-
         ptr_ = t.ptr_;
+
         t.ptr_ = 0;
     }
     else
@@ -387,6 +387,21 @@ inline void Foam::tmp<T>::operator=(const tmp<T>& t)
             << "Attempted assignment to a const reference to an object"
             << " of type " << typeid(T).name()
             << abort(FatalError);
+    }
+}
+
+
+template<class T>
+inline void Foam::tmp<T>::operator=(const tmp<T>&& t)
+{
+    clear();
+
+    type_ = t.type_;
+    ptr_ = t.ptr_;
+
+    if (isAnyTmp())
+    {
+        t.ptr_ = 0;
     }
 }
 

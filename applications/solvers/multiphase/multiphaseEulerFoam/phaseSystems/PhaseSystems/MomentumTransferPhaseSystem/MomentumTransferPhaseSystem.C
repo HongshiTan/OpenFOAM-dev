@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,8 +42,8 @@ License
 #include "fvcDiv.H"
 #include "fvcFlux.H"
 #include "fvcSnGrad.H"
+#include "fvcMeshPhi.H"
 #include "fvMatrix.H"
-
 
 // * * * * * * * * * * * * Private Member Functions * * * * * * * * * * * * //
 
@@ -371,13 +371,14 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::momentumTransfer()
 
                 const volVectorField& U = eqn.psi();
                 const surfaceScalarField& phi = phase.phi();
+                const tmp<surfaceScalarField> taphi(fvc::absolute(phi, U));
+                const surfaceScalarField& aphi(taphi());
 
                 eqn -=
                     Vm
                    *(
                         fvm::ddt(U)
-                      + fvm::div(phi, U)
-                      - fvm::Sp(fvc::div(phi), U)
+                      + fvm::div(aphi, U) - fvm::Sp(fvc::div(aphi), U)
                       - otherPhase.DUDt()
                     )
                   + this->MRF_.DDt(Vm, U - otherPhase.U());
@@ -421,14 +422,15 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::momentumTransferf()
         if (!phase.stationary())
         {
             const volVectorField& U = phase.U();
+            const surfaceScalarField& phi = phase.phi();
+            const tmp<surfaceScalarField> aphi(fvc::absolute(phi, U));
 
             UgradUs.set
             (
                 phasei,
                 new fvVectorMatrix
                 (
-                    fvm::div(phase.phi(), U)
-                  - fvm::Sp(fvc::div(phase.phi()), U)
+                    fvm::div(aphi, U) - fvm::Sp(fvc::div(aphi), U)
                   + this->MRF().DDt(U)
                 )
             );
@@ -654,7 +656,14 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::phiFfs
                 "phiFf",
                -rAUfs[iter().index()]*Vmf
                *(
-                   byDt(this->MRF().absolute(iter().phi()().oldTime()))
+                   byDt
+                   (
+                       fvc::absolute
+                       (
+                           this->MRF().absolute(iter().phi()().oldTime()),
+                           iter().U()
+                       )
+                   )
                  + iter.otherPhase().DUDtf()
                 ),
                 phiFfs
@@ -794,7 +803,11 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::phiKdPhis
                 iter(),
                 "phiKdPhi",
                -fvc::interpolate(rAUs[iter().index()]*K)
-               *this->MRF().absolute(iter.otherPhase().phi()),
+               *fvc::absolute
+                (
+                    this->MRF().absolute(iter.otherPhase().phi()),
+                    iter.otherPhase().U()
+                ),
                 phiKdPhis
             );
         }
@@ -836,7 +849,11 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::phiKdPhifs
                 iter(),
                 "phiKdPhif",
                -rAUfs[iter().index()]*Kf
-               *this->MRF().absolute(iter.otherPhase().phi()),
+               *fvc::absolute
+                (
+                    this->MRF().absolute(iter.otherPhase().phi()),
+                    iter.otherPhase().U()
+                ),
                 phiKdPhifs
             );
         }
@@ -1098,22 +1115,32 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::ddtCorrByAs
 
     // Construct phi differences
     PtrList<surfaceScalarField> phiCorrs(this->phaseModels_.size());
-    forAll(this->phaseModels_, phasei)
+
+    forAll(this->movingPhases(), movingPhasei)
     {
-        const phaseModel& phase = this->phaseModels_[phasei];
+        const phaseModel& phase = this->movingPhases()[movingPhasei];
+        const label phasei = phase.index();
 
         phiCorrs.set
         (
             phasei,
-            this->MRF().absolute(phase.phi()().oldTime())
-            -fvc::flux(phase.U()().oldTime())
+            this->MRF().zeroFilter
+            (
+                (
+                    phase.Uf().valid()
+                  ? (this->mesh_.Sf() & phase.Uf()().oldTime())()
+                  : phase.phi()().oldTime()
+                )
+              - fvc::flux(phase.U()().oldTime())
+            )()
         );
     }
 
     // Add correction
-    forAll(this->phaseModels_, phasei)
+    forAll(this->movingPhases(), movingPhasei)
     {
-        const phaseModel& phase = this->phaseModels_[phasei];
+        const phaseModel& phase = this->movingPhases()[movingPhasei];
+        const label phasei = phase.index();
         const volScalarField& alpha = phase;
 
         // Apply ddtPhiCorr filter in pure(ish) phases
@@ -1172,7 +1199,11 @@ Foam::MomentumTransferPhaseSystem<BasePhaseSystem>::ddtCorrByAs
                    -fvc::interpolate(Vm*byDt(rAUs[phase.index()]))
                    *(
                        phiCorrs[phase.index()]
-                     + this->MRF().absolute(otherPhase.phi())
+                     + fvc::absolute
+                       (
+                           this->MRF().absolute(otherPhase.phi()),
+                           otherPhase.U()
+                       )
                      - fvc::flux(otherPhase.U())
                      - phiCorrs[otherPhase.index()]
                     ),

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -157,6 +157,7 @@ Foam::MovingPhaseModel<BasePhaseModel>::MovingPhaseModel
         fluid.mesh(),
         dimensionedScalar(dimensionSet(1, 0, -1, 0, 0), 0)
     ),
+    Uf_(nullptr),
     DUDt_(nullptr),
     DUDtf_(nullptr),
     divU_(nullptr),
@@ -194,6 +195,22 @@ Foam::MovingPhaseModel<BasePhaseModel>::MovingPhaseModel
     K_(nullptr)
 {
     phi_.writeOpt() = IOobject::AUTO_WRITE;
+
+    if (fluid.mesh().dynamic())
+    {
+        Uf_ = new surfaceVectorField
+        (
+            IOobject
+            (
+                IOobject::groupName("Uf", this->name()),
+                fluid.mesh().time().timeName(),
+                fluid.mesh(),
+                IOobject::READ_IF_PRESENT,
+                IOobject::AUTO_WRITE
+            ),
+            fvc::interpolate(U_)
+        );
+    }
 
     correctKinematics();
 }
@@ -247,8 +264,7 @@ void Foam::MovingPhaseModel<BasePhaseModel>::correctKinematics()
 
     if (K_.valid())
     {
-        K_.clear();
-        K();
+        K_.ref() = 0.5*magSqr(this->U());
     }
 }
 
@@ -267,6 +283,33 @@ void Foam::MovingPhaseModel<BasePhaseModel>::correctEnergyTransport()
 {
     BasePhaseModel::correctEnergyTransport();
     thermophysicalTransport_->correct();
+}
+
+
+template<class BasePhaseModel>
+void Foam::MovingPhaseModel<BasePhaseModel>::correctUf()
+{
+    const fvMesh& mesh = this->fluid().mesh();
+
+    if (mesh.dynamic())
+    {
+        Uf_.ref() = fvc::interpolate(U_);
+        surfaceVectorField n(mesh.Sf()/mesh.magSf());
+        Uf_.ref() += n*(fvc::absolute(phi_, U_)/mesh.magSf() - (n & Uf_()));
+
+        surfaceVectorField::Boundary& UfBf = Uf_.ref().boundaryFieldRef();
+        const volVectorField::Boundary& UBf = U_.boundaryField();
+
+        forAll(mesh.boundary(), patchi)
+        {
+            // Remove the flux correction on AMI patches to compensate for
+            // AMI non-conservation error
+            if (isA<cyclicAMIFvPatch>(mesh.boundary()[patchi]))
+            {
+                UfBf[patchi] = UBf[patchi];
+            }
+        }
+    }
 }
 
 
@@ -347,6 +390,36 @@ Foam::MovingPhaseModel<BasePhaseModel>::phiRef()
 
 
 template<class BasePhaseModel>
+Foam::tmp<Foam::surfaceVectorField>
+Foam::MovingPhaseModel<BasePhaseModel>::Uf() const
+{
+    return
+        Uf_.valid()
+      ? tmp<surfaceVectorField>(Uf_())
+      : tmp<surfaceVectorField>();
+}
+
+
+template<class BasePhaseModel>
+Foam::surfaceVectorField&
+Foam::MovingPhaseModel<BasePhaseModel>::UfRef()
+{
+    if (Uf_.valid())
+    {
+        return Uf_.ref();
+    }
+    else
+    {
+        FatalErrorInFunction
+            << "Uf has not been allocated."
+            << exit(FatalError);
+
+        return const_cast<surfaceVectorField&>(surfaceVectorField::null());
+    }
+}
+
+
+template<class BasePhaseModel>
 Foam::tmp<Foam::surfaceScalarField>
 Foam::MovingPhaseModel<BasePhaseModel>::alphaPhi() const
 {
@@ -384,7 +457,9 @@ Foam::MovingPhaseModel<BasePhaseModel>::DUDt() const
 {
     if (!DUDt_.valid())
     {
-        DUDt_ = fvc::ddt(U_) + fvc::div(phi_, U_) - fvc::div(phi_)*U_;
+        const tmp<surfaceScalarField> taphi(fvc::absolute(phi_, U_));
+        const surfaceScalarField& aphi(taphi());
+        DUDt_ = fvc::ddt(U_) + fvc::div(aphi, U_) - fvc::div(aphi)*U_;
     }
 
     return tmp<volVectorField>(DUDt_());

@@ -9,7 +9,6 @@ tmp<fv::convectionScheme<scalar>> mvConvection
     )
 );
 {
-    radiation->correct();
     combustion->correct();
 
     forAll(Y, i)
@@ -36,7 +35,7 @@ tmp<fv::convectionScheme<scalar>> mvConvection
 
             YiEqn.solve("Yi");
 
-            fvOptions.correct(Yi);
+            fvOptions.constrain(Yi);
         }
     }
 
@@ -61,7 +60,6 @@ tmp<fv::convectionScheme<scalar>> mvConvection
       + thermophysicalTransport->divq(he)
      ==
         combustion->Qdot()
-      + radiation->Sh(thermo, he)
       + parcels.Sh(he)
       + surfaceFilm.Sh()
       + fvOptions(rho, he)
@@ -73,7 +71,7 @@ tmp<fv::convectionScheme<scalar>> mvConvection
 
     EEqn.solve();
 
-    fvOptions.correct(he);
+    fvOptions.constrain(he);
 
     thermo.correct();
 

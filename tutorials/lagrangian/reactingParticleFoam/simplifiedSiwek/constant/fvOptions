@@ -21,11 +21,19 @@ source1
 
     timeStart       0.1;
     duration        0.4;
+
     selectionMode   cellSet;
     cellSet         ignitionCells;
 
     mode            uniform;
+
     temperature     2000;
+}
+
+radiation
+{
+    type    radiation;
+    libs    ("libradiationModels.so");
 }
 
 

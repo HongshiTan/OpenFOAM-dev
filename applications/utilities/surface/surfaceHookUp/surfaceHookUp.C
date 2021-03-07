@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,7 +41,7 @@ Usage
 #include "PackedBoolList.H"
 #include "unitConversion.H"
 #include "searchableSurfaces.H"
-#include "IOdictionary.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -281,12 +281,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    const word dictName("surfaceHookUpDict");
-    #include "setSystemRunTimeDictionaryIO.H"
-
-    Info<< "Reading " << dictName << nl << endl;
-
-    const IOdictionary dict(dictIO);
+    const dictionary dict(systemDict("surfaceHookUpDict", args, runTime));
 
     const scalar dist(args.argRead<scalar>(1));
     const scalar matchTolerance(max(1e-6*dist, small));
@@ -300,7 +295,7 @@ int main(int argc, char *argv[])
         (
             "surfacesToHook",
             runTime.constant(),
-            "triSurface",
+            searchableSurface::geometryDir(runTime),
             runTime
         ),
         dict,
@@ -345,7 +340,7 @@ int main(int argc, char *argv[])
                 (
                     "hookedSurface_" + surfs.names()[surfI],
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 surf
@@ -559,7 +554,7 @@ int main(int argc, char *argv[])
                     (
                         "hookedSurface_" + surfs.names()[surfI],
                         runTime.constant(),
-                        "triSurface",
+                        searchableSurface::geometryDir(runTime),
                         runTime
                     ),
                     triSurface

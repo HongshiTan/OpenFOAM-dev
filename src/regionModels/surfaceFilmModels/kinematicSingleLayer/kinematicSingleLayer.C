@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -206,8 +206,8 @@ void kinematicSingleLayer::updateSubmodels()
 {
     DebugInFunction << endl;
 
-    // Update injection model - mass returned is mass available for injection
-    injection_.correct(availableMass_, cloudMassTrans_, cloudDiameterTrans_);
+    // Update ejection model - mass returned is mass available for ejection
+    ejection_.correct(availableMass_, cloudMassTrans_, cloudDiameterTrans_);
 
     // Update transfer model - mass returned is mass available for transfer
     transfer_.correct(availableMass_, cloudMassTrans_);
@@ -802,7 +802,7 @@ kinematicSingleLayer::kinematicSingleLayer
     (
         IOobject
         (
-            "rho", // must have same name as rho to enable mapping
+            "thermo:rho", // must have same name as rho to enable mapping
             time().timeName(),
             regionMesh(),
             IOobject::NO_READ,
@@ -832,7 +832,7 @@ kinematicSingleLayer::kinematicSingleLayer
 
     availableMass_(regionMesh().nCells(), 0),
 
-    injection_(*this, coeffs_),
+    ejection_(*this, coeffs_),
 
     transfer_(*this, coeffs_),
 
@@ -1017,7 +1017,7 @@ void kinematicSingleLayer::info()
         << indent << "coverage           = "
         << gSum(coverage_.primitiveField()*magSf())/gSum(magSf()) <<  nl;
 
-    injection_.info(Info);
+    ejection_.info(Info);
     transfer_.info(Info);
 }
 

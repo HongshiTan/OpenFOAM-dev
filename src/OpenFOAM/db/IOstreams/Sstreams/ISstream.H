@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,6 +38,7 @@ SourceFiles
 
 #include "Istream.H"
 #include "fileName.H"
+#include "DynamicList.H"
 #include <iostream>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -53,10 +54,26 @@ class ISstream
 :
     public Istream
 {
+    // Private Static Data
+
+        //- Initial capacity of the character buffer
+        static const int bufInitialCapacity = 1024;
+
+        //- Amount of the buffer used in error messages. Less than the buffer
+        //  length to facilitate readability.
+        static const int bufErrorLength = 80;
+
+
     // Private Data
 
+        //- The name of this stream
         fileName name_;
+
+        //- Reference to the standard stream
         istream& is_;
+
+        //- Character buffer
+        DynamicList<char> buf_;
 
 
     // Private Member Functions
@@ -133,7 +150,8 @@ public:
             inline ISstream& putback(const char&);
 
             //- Read line into a string
-            ISstream& getLine(string&);
+            //  with optional support for continuation lines
+            ISstream& getLine(string&, const bool continuation = true);
 
             //- Read a '(...)' delimited set of characters into a string
             Istream& readList(string&);

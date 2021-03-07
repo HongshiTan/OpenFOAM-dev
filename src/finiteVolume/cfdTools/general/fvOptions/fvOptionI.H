@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,12 +40,6 @@ inline const Foam::fvMesh& Foam::fv::option::mesh() const
 inline const Foam::dictionary& Foam::fv::option::coeffs() const
 {
     return coeffs_;
-}
-
-
-inline void Foam::fv::option::setApplied(const label fieldi) const
-{
-    applied_[fieldi] = true;
 }
 
 

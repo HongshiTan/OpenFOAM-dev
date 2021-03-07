@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,7 +36,7 @@ SourceFile
 #define fvOptionList_H
 
 #include "fvOption.H"
-#include "PtrList.H"
+#include "PtrListDictionary.H"
 #include "GeometricField.H"
 #include "geometricOneField.H"
 #include "fvPatchField.H"
@@ -64,7 +64,7 @@ namespace fv
 
 class optionList
 :
-    public PtrList<option>
+    public PtrListDictionary<option>
 {
 protected:
 
@@ -74,7 +74,13 @@ protected:
         const fvMesh& mesh_;
 
         //- Time index to check that all defined sources have been applied
-        label checkTimeIndex_;
+        mutable label checkTimeIndex_;
+
+        //- Sets of the fields that have had sources added by the options
+        mutable PtrList<wordHashSet> addSupFields_;
+
+        //- Sets of the fields that have been constrained by the options
+        mutable PtrList<wordHashSet> constrainedFields_;
 
 
     // Protected Member Functions
@@ -82,16 +88,17 @@ protected:
         //- Read options dictionary
         bool readOptions(const dictionary& dict);
 
-        //- Check that all sources have been applied
+        //- Check that all options have been applied
         void checkApplied() const;
 
         //- Return source for equation with specified name and dimensions
-        template<class Type>
+        template<class Type, class ... AlphaRhoFieldTypes>
         tmp<fvMatrix<Type>> source
         (
             GeometricField<Type, fvPatchField, volMesh>& field,
             const word& fieldName,
-            const dimensionSet& ds
+            const dimensionSet& ds,
+            const AlphaRhoFieldTypes& ... alphaRhos
         ) const;
 
 
@@ -131,20 +138,31 @@ public:
         //- Reset the source list
         void reset(const dictionary& dict);
 
-        //- Return whether there is something to apply to the field
-        bool appliesToField(const word& fieldName) const;
+
+        // Checks
+
+            //- Return true if an option adds a source term to the given
+            //  field's transport equation
+            virtual bool addsSupToField(const word& fieldName) const;
+
+            //- Return true if an option constrains the given field
+            virtual bool constrainsField(const word& fieldName) const;
 
 
         // Sources
 
-            //- Return source for equation
+            //- Correct the fvOptions
+            //  e.g. solve equations, update model, for film, Lagrangian etc.
+            virtual void correct();
+
+            //- Return source for an equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation with specified name
+            //- Return source for an equation with a specified name
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -152,7 +170,7 @@ public:
                 const word& fieldName
             ) const;
 
-            //- Return source for equation
+            //- Return source for a compressible equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -160,7 +178,7 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation with specified name
+            //- Return source for a compressible equation with a specified name
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -169,7 +187,7 @@ public:
                 const word& fieldName
             ) const;
 
-            //- Return source for equation
+            //- Return source for a phase equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -178,7 +196,7 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation with specified name
+            //- Return source for a phase equation with a specified name
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -188,7 +206,7 @@ public:
                 const word& fieldName
             ) const;
 
-            //- Return source for equation
+            //- Return source for a phase equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -197,7 +215,7 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation
+            //- Return source for a phase equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -206,7 +224,7 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation
+            //- Return source for a phase equation
             template<class Type>
             tmp<fvMatrix<Type>> operator()
             (
@@ -215,14 +233,14 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation with second time derivative
+            //- Return source for an equation with a second time derivative
             template<class Type>
             tmp<fvMatrix<Type>> d2dt2
             (
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;
 
-            //- Return source for equation with second time derivative
+            //- Return source for an equation with a second time derivative
             template<class Type>
             tmp<fvMatrix<Type>> d2dt2
             (
@@ -233,16 +251,13 @@ public:
 
         // Constraints
 
-            //- Apply constraints to equation
+            //- Apply constraints to an equation
             template<class Type>
             void constrain(fvMatrix<Type>& eqn) const;
 
-
-        // Correction
-
-            //- Apply correction to field
+            //- Apply constraints to a field
             template<class Type>
-            void correct
+            void constrain
             (
                 GeometricField<Type, fvPatchField, volMesh>& field
             ) const;

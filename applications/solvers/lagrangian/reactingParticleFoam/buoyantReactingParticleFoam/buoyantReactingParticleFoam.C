@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,7 +37,6 @@ Description
 #include "parcelCloudList.H"
 #include "surfaceFilmModel.H"
 #include "combustionModel.H"
-#include "radiationModel.H"
 #include "SLGThermo.H"
 #include "fvOptions.H"
 #include "pimpleControl.H"
@@ -127,14 +126,7 @@ int main(int argc, char *argv[])
 
             if (correctPhi)
             {
-                // Calculate absolute flux
-                // from the mapped surface velocity
-                phi = mesh.Sf() & rhoUf();
-
                 #include "../../compressible/rhoPimpleFoam/correctPhi.H"
-
-                // Make the fluxes relative to the mesh-motion
-                fvc::makeRelative(phi, rho, U);
             }
 
             if (checkMeshCourantNo)
@@ -154,6 +146,8 @@ int main(int argc, char *argv[])
         // --- PIMPLE loop
         while (solvePrimaryRegion && pimple.loop())
         {
+            fvOptions.correct();
+
             #include "UEqn.H"
             #include "YEqn.H"
             #include "EEqn.H"

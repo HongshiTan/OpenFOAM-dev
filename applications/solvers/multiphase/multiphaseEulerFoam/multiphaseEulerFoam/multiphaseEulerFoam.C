@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
+#include "dynamicFvMesh.H"
 #include "phaseSystem.H"
 #include "phaseCompressibleMomentumTransportModel.H"
 #include "pimpleControl.H"
@@ -48,9 +49,8 @@ int main(int argc, char *argv[])
 
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    #include "createMesh.H"
-    #include "createControl.H"
-    #include "createTimeControls.H"
+    #include "createDynamicFvMesh.H"
+    #include "createDyMControls.H"
     #include "createFields.H"
     #include "createFieldRefs.H"
 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 
     while (pimple.run(runTime))
     {
-        #include "readTimeControls.H"
+        #include "readDyMControls.H"
 
         int nEnergyCorrectors
         (
@@ -104,30 +104,95 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-            fluid.solve(rAUs, rAUfs);
-            fluid.correct();
-            fluid.correctContinuityError();
-
-            #include "YEqns.H"
-
-            if (faceMomentum)
+            if (pimple.frozenFlow())
             {
-                #include "pUf/UEqns.H"
+                fvOptions.correct();
+
+                fluid.solve(rAUs, rAUfs);
+                fluid.correct();
+                fluid.correctContinuityError();
+
+                #include "YEqns.H"
                 #include "EEqns.H"
-                #include "pUf/pEqn.H"
+                #include "pEqnComps.H"
+
+                forAll(phases, phasei)
+                {
+                    phases[phasei].divU(-pEqnComps[phasei] & p_rgh);
+                }
             }
             else
             {
-                #include "pU/UEqns.H"
-                #include "EEqns.H"
-                #include "pU/pEqn.H"
-            }
+                if (pimple.firstPimpleIter() || moveMeshOuterCorrectors)
+                {
+                    // Store divU from the previous mesh so that it can be
+                    // mapped and used in correctPhi to ensure the corrected phi
+                    // has the same divergence
+                    tmp<volScalarField> divU;
 
-            fluid.correctKinematics();
+                    if
+                    (
+                        correctPhi
+                    )
+                    {
+                        divU = volScalarField::New
+                        (
+                            "divU0",
+                            fvc::div
+                            (
+                                fvc::absolute(phi, fluid.movingPhases()[0].U())
+                            )
+                        );
+                    }
 
-            if (pimple.turbCorr())
-            {
-                fluid.correctTurbulence();
+                    mesh.update();
+
+                    if (mesh.changing())
+                    {
+                        gh = (g & mesh.C()) - ghRef;
+                        ghf = (g & mesh.Cf()) - ghRef;
+
+                        fluid.meshUpdate();
+
+                        if (correctPhi)
+                        {
+                            fluid.correctPhi(p_rgh, divU, pimple);
+                        }
+
+                        if (checkMeshCourantNo)
+                        {
+                            #include "meshCourantNo.H"
+                        }
+                    }
+                }
+
+                fvOptions.correct();
+
+                fluid.solve(rAUs, rAUfs);
+                fluid.correct();
+                fluid.correctContinuityError();
+
+                #include "YEqns.H"
+
+                if (faceMomentum)
+                {
+                    #include "pUf/UEqns.H"
+                    #include "EEqns.H"
+                    #include "pUf/pEqn.H"
+                }
+                else
+                {
+                    #include "pU/UEqns.H"
+                    #include "EEqns.H"
+                    #include "pU/pEqn.H"
+                }
+
+                fluid.correctKinematics();
+
+                if (pimple.turbCorr())
+                {
+                    fluid.correctTurbulence();
+                }
             }
         }
 

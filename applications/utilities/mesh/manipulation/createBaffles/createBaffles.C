@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,8 +49,9 @@ Description
 #include "pointFields.H"
 #include "fvMeshMapper.H"
 #include "faceSelection.H"
-
+#include "searchableSurface.H"
 #include "fvMeshTools.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -446,13 +447,9 @@ int main(int argc, char *argv[])
     runTime.functionObjects().off();
     #include "createNamedMesh.H"
 
-
     const bool overwrite = args.optionFound("overwrite");
 
     const word oldInstance = mesh.pointsInstance();
-
-    const word dictName("createBafflesDict");
-    #include "setSystemMeshDictionaryIO.H"
 
     Switch internalFacesOnly(false);
 
@@ -460,8 +457,7 @@ int main(int argc, char *argv[])
 
     PtrList<faceSelection> selectors;
     {
-        Info<< "Reading baffle criteria from " << dictName << nl << endl;
-        IOdictionary dict(dictIO);
+        const dictionary dict(systemDict("createBafflesDict", args, mesh));
 
         dict.lookup("internalFacesOnly") >> internalFacesOnly;
         fields = dict.lookupOrDefault("fields", false);

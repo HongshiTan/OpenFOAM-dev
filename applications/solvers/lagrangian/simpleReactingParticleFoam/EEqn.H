@@ -13,7 +13,6 @@
      ==
         rho*(U&g)
       + clouds.Sh(he)
-      + radiation->Sh(thermo, he)
       + combustion->Qdot()
       + fvOptions(rho, he)
     );
@@ -24,9 +23,8 @@
 
     EEqn.solve();
 
-    fvOptions.correct(he);
+    fvOptions.constrain(he);
     thermo.correct();
-    radiation->correct();
 
     Info<< "T gas min/max   = " << min(T).value() << ", "
         << max(T).value() << endl;

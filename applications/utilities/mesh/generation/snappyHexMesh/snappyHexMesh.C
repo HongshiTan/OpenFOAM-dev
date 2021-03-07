@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,6 +58,7 @@ Description
 #include "globalIndex.H"
 #include "IOmanip.H"
 #include "fvMeshTools.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -731,9 +732,7 @@ int main(int argc, char *argv[])
 
 
     // Read meshing dictionary
-    const word dictName("snappyHexMeshDict");
-    #include "setSystemMeshDictionaryIO.H"
-    const IOdictionary meshDict(dictIO);
+    const IOdictionary meshDict(systemDict("snappyHexMeshDict", args, mesh));
 
 
     // all surface geometry
@@ -867,11 +866,10 @@ int main(int argc, char *argv[])
     (
         IOobject
         (
-            "abc",                      // dummy name
-            mesh.time().constant(),     // instance
-            // mesh.time().findInstance("triSurface", word::null),// instance
-            "triSurface",               // local
-            mesh.time(),                // registry
+            "abc",
+            mesh.time().constant(),
+            searchableSurface::geometryDir(mesh.time()),
+            mesh.time(),
             IOobject::MUST_READ,
             IOobject::NO_WRITE
         ),
@@ -1247,7 +1245,7 @@ int main(int argc, char *argv[])
     }
 
     // Mesh distribution engine (uses tolerance to reconstruct meshes)
-    fvMeshDistribute distributor(mesh, mergeDist);
+    fvMeshDistribute distributor(mesh);
 
 
 

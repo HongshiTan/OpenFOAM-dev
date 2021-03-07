@@ -1,13 +1,22 @@
 {
-    volScalarField rAU("rAU", 1.0/UEqn.A());
-    surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
-    volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p_rgh));
+    if (correctPhi)
+    {
+        rAU.ref() = 1.0/UEqn.A();
+    }
+    else
+    {
+        rAU = 1.0/UEqn.A();
+    }
+
+    surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU()));
+    volVectorField HbyA(constrainHbyA(rAU()*UEqn.H(), U, p_rgh));
     surfaceScalarField phiHbyA
     (
         "phiHbyA",
         fvc::flux(HbyA)
-      + MRF.zeroFilter(fvc::interpolate(rho*rAU)*fvc::ddtCorr(U, phi, Uf))
+      + MRF.zeroFilter(fvc::interpolate(rho*rAU())*fvc::ddtCorr(U, phi, Uf))
     );
+
     MRF.makeRelative(phiHbyA);
 
     surfaceScalarField phig
@@ -22,6 +31,9 @@
 
     // Update the pressure BCs to ensure flux consistency
     constrainPressure(p_rgh, U, phiHbyA, rAUf, MRF);
+
+    // Cache the phase change pressure source
+    fvScalarMatrix Sp_rgh(phaseChange.Sp_rgh(rho, gh, p_rgh));
 
     // Make the fluxes relative to the mesh motion
     fvc::makeRelative(phiHbyA, U);
@@ -71,8 +83,7 @@
         #include "rhofs.H"
 
         p_rghEqnComp1 =
-            pos(alpha1)
-           *(
+            (
                 (
                     fvc::ddt(alpha1, rho1) + fvc::div(alphaPhi1*rho1f)
                   - (fvOptions(alpha1, mixture.thermo1().rho())&rho1)
@@ -82,8 +93,7 @@
             );
 
         p_rghEqnComp2 =
-            pos(alpha2)
-           *(
+            (
                (
                    fvc::ddt(alpha2, rho2) + fvc::div(alphaPhi2*rho2f)
                  - (fvOptions(alpha2, mixture.thermo2().rho())&rho2)
@@ -115,8 +125,8 @@
     {
         fvScalarMatrix p_rghEqnIncomp
         (
-            fvc::div(phiHbyA)
-          - fvm::laplacian(rAUf, p_rgh)
+            fvc::div(phiHbyA) - fvm::laplacian(rAUf, p_rgh)
+         == Sp_rgh
         );
 
         solve
@@ -138,9 +148,9 @@
             phi = phiHbyA + p_rghEqnIncomp.flux();
 
             U = HbyA
-              + rAU*fvc::reconstruct((phig + p_rghEqnIncomp.flux())/rAUf);
+              + rAU()*fvc::reconstruct((phig + p_rghEqnIncomp.flux())/rAUf);
             U.correctBoundaryConditions();
-            fvOptions.correct(U);
+            fvOptions.constrain(U);
         }
     }
 

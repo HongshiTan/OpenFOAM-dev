@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,7 @@ bool Foam::fv::optionList::readOptions(const dictionary& dict)
 {
     const dictionary& optionsDict(this->optionsDict(dict));
 
-    checkTimeIndex_ = mesh_.time().timeIndex() + 2;
+    checkTimeIndex_ = mesh_.time().timeIndex() + 1;
 
     bool allOk = true;
     forAll(*this, i)
@@ -74,13 +74,34 @@ bool Foam::fv::optionList::readOptions(const dictionary& dict)
 
 void Foam::fv::optionList::checkApplied() const
 {
-    if (mesh_.time().timeIndex() == checkTimeIndex_)
+    if (mesh_.time().timeIndex() > checkTimeIndex_)
     {
         forAll(*this, i)
         {
-            const option& bs = this->operator[](i);
-            bs.checkApplied();
+            const option& source = this->operator[](i);
+
+            wordHashSet notAddSupFields(source.addSupFields());
+            notAddSupFields -= addSupFields_[i];
+
+            forAllConstIter(wordHashSet, notAddSupFields, iter)
+            {
+                WarningInFunction
+                    << "Source " << source.name() << " defined for field "
+                    << iter.key() << " but never used" << endl;
+            }
+
+            wordHashSet notConstrainedFields(source.constrainedFields());
+            notConstrainedFields -= constrainedFields_[i];
+
+            forAllConstIter(wordHashSet, notConstrainedFields, iter)
+            {
+                WarningInFunction
+                    << "Constraint " << source.name() << " defined for field "
+                    << iter.key() << " but never used" << endl;
+            }
         }
+
+        checkTimeIndex_ = mesh_.time().timeIndex();
     }
 }
 
@@ -89,9 +110,11 @@ void Foam::fv::optionList::checkApplied() const
 
 Foam::fv::optionList::optionList(const fvMesh& mesh, const dictionary& dict)
 :
-    PtrList<option>(),
+    PtrListDictionary<option>(0),
     mesh_(mesh),
-    checkTimeIndex_(mesh_.time().startTimeIndex() + 2)
+    checkTimeIndex_(mesh_.time().timeIndex() + 1),
+    addSupFields_(),
+    constrainedFields_()
 {
     reset(dict);
 }
@@ -99,9 +122,11 @@ Foam::fv::optionList::optionList(const fvMesh& mesh, const dictionary& dict)
 
 Foam::fv::optionList::optionList(const fvMesh& mesh)
 :
-    PtrList<option>(),
+    PtrListDictionary<option>(0),
     mesh_(mesh),
-    checkTimeIndex_(mesh_.time().startTimeIndex() + 2)
+    checkTimeIndex_(mesh_.time().timeIndex() + 1),
+    addSupFields_(),
+    constrainedFields_()
 {}
 
 
@@ -122,6 +147,10 @@ void Foam::fv::optionList::reset(const dictionary& dict)
     }
 
     this->setSize(count);
+
+    addSupFields_.setSize(count);
+    constrainedFields_.setSize(count);
+
     label i = 0;
     forAllConstIter(dictionary, optionsDict, iter)
     {
@@ -132,23 +161,39 @@ void Foam::fv::optionList::reset(const dictionary& dict)
 
             this->set
             (
-                i++,
-                option::New(name, sourceDict, mesh_)
+                i,
+                name,
+                option::New(name, sourceDict, mesh_).ptr()
             );
+
+            addSupFields_.set(i, new wordHashSet());
+            constrainedFields_.set(i, new wordHashSet());
+
+            i++;
         }
     }
 }
 
 
-bool Foam::fv::optionList::appliesToField(const word& fieldName) const
+bool Foam::fv::optionList::addsSupToField(const word& fieldName) const
 {
     forAll(*this, i)
     {
-        const option& source = this->operator[](i);
+        if (this->operator[](i).addsSupToField(fieldName))
+        {
+            return true;
+        }
+    }
 
-        label fieldi = source.applyToField(fieldName);
+    return false;
+}
 
-        if (fieldi != -1)
+
+bool Foam::fv::optionList::constrainsField(const word& fieldName) const
+{
+    forAll(*this, i)
+    {
+        if (this->operator[](i).constrainsField(fieldName))
         {
             return true;
         }
@@ -177,6 +222,15 @@ bool Foam::fv::optionList::writeData(Ostream& os) const
 
     // Check state of IOstream
     return os.good();
+}
+
+
+void Foam::fv::optionList::correct()
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).correct();
+    }
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,6 @@ Description
 #include "fluidReactionThermophysicalTransportModel.H"
 #include "parcelCloudList.H"
 #include "surfaceFilmModel.H"
-#include "radiationModel.H"
 #include "SLGThermo.H"
 #include "fluidReactionThermo.H"
 #include "combustionModel.H"
@@ -87,6 +86,8 @@ int main(int argc, char *argv[])
             // --- PIMPLE loop
             while (pimple.loop())
             {
+                fvOptions.correct();
+
                 #include "UEqn.H"
                 #include "YEEqn.H"
 

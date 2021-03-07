@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -104,60 +104,63 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-            if (pimple.firstPimpleIter() || moveMeshOuterCorrectors)
+            fvOptions.correct();
+
+            if (pimple.frozenFlow())
             {
-                // Store momentum to set rhoUf for introduced faces.
-                autoPtr<volVectorField> rhoU;
-                if (rhoUf.valid())
+                #include "YEqn.H"
+                #include "EEqn.H"
+            }
+            else
+            {
+                if (pimple.firstPimpleIter() || moveMeshOuterCorrectors)
                 {
-                    rhoU = new volVectorField("rhoU", rho*U);
-                }
-
-                // Do any mesh changes
-                mesh.update();
-
-                if (mesh.changing())
-                {
-                    MRF.update();
-
-                    if (correctPhi)
+                    // Store momentum to set rhoUf for introduced faces.
+                    autoPtr<volVectorField> rhoU;
+                    if (rhoUf.valid())
                     {
-                        // Calculate absolute flux
-                        // from the mapped surface velocity
-                        phi = mesh.Sf() & rhoUf();
-
-                        #include "../../compressible/rhoPimpleFoam/correctPhi.H"
-
-                        // Make the fluxes relative to the mesh-motion
-                        fvc::makeRelative(phi, rho, U);
+                        rhoU = new volVectorField("rhoU", rho*U);
                     }
 
-                    if (checkMeshCourantNo)
+                    // Do any mesh changes
+                    mesh.update();
+
+                    if (mesh.changing())
                     {
-                        #include "meshCourantNo.H"
+                        MRF.update();
+
+                        if (correctPhi)
+                        {
+                            #include "correctPhi.H"
+                        }
+
+                        if (checkMeshCourantNo)
+                        {
+                            #include "meshCourantNo.H"
+                        }
                     }
                 }
-            }
 
-            if (pimple.firstPimpleIter() && !pimple.simpleRho())
-            {
-                #include "rhoEqn.H"
-            }
+                if (pimple.firstPimpleIter() && !pimple.simpleRho())
+                {
+                    #include "rhoEqn.H"
+                }
 
-            #include "UEqn.H"
-            #include "YEqn.H"
-            #include "EEqn.H"
+                #include "UEqn.H"
+                #include "YEqn.H"
+                #include "EEqn.H"
 
-            // --- Pressure corrector loop
-            while (pimple.correct())
-            {
-                #include "../../compressible/rhoPimpleFoam/pEqn.H"
-            }
+                // --- Pressure corrector loop
+                while (pimple.correct())
+                {
+                    #include "../../compressible/rhoPimpleFoam/pEqn.H"
+                }
 
-            if (pimple.turbCorr())
-            {
-                turbulence->correct();
-                thermophysicalTransport->correct();
+                if (pimple.turbCorr())
+                {
+                    turbulence->correct();
+                    thermophysicalTransport->correct();
+                }
             }
         }
 

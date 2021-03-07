@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,6 +55,8 @@ int main(int argc, char *argv[])
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
+        fvOptions.correct();
+
         while (simple.correctNonOrthogonal())
         {
             fvScalarMatrix TEqn
@@ -69,7 +71,7 @@ int main(int argc, char *argv[])
             TEqn.relax();
             fvOptions.constrain(TEqn);
             TEqn.solve();
-            fvOptions.correct(T);
+            fvOptions.constrain(T);
         }
 
         runTime.write();

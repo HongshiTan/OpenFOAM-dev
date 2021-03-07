@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,6 +65,8 @@ int main(int argc, char *argv[])
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
+        fvOptions.correct();
+
         fvVectorMatrix divR(turbulence->divDevSigma(U));
         divR.source() = flowMask & divR.source();
 
@@ -79,7 +81,7 @@ int main(int argc, char *argv[])
 
         UEqn.solve();
 
-        fvOptions.correct(U);
+        fvOptions.constrain(U);
 
 
         // Correct driving force for a constant volume flow rate

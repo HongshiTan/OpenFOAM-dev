@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -60,6 +60,7 @@ class blendingMethod;
 template<class modelType> class BlendedInterfacialModel;
 class surfaceTensionModel;
 class aspectRatioModel;
+class nonOrthogonalSolutionControl;
 
 /*---------------------------------------------------------------------------*\
                          Class phaseSystem Declaration
@@ -263,6 +264,10 @@ protected:
             const bool correctFixedFluxBCs = true
         );
 
+        //- Check that mass transfer is supported across the given interface
+        template<class modelType>
+        void validateMassTransfer(const phasePair& key) const;
+
         //- Return the sum of the phase fractions of the moving phases
         tmp<volScalarField> sumAlphaMoving() const;
 
@@ -270,54 +275,45 @@ protected:
         //  around the specified mixture mean
         void setMixtureU(const volVectorField& Um);
 
-        //- Re-normalise the flux of the phases
-        //  around the specified mixture mean
-        void setMixturePhi
-        (
-            const PtrList<surfaceScalarField>& alphafs,
-            const surfaceScalarField& phim
-        );
-
 
         // Functions required for interface compression
 
-        //- Normal to interface between two phases
-        //  Used for interface compression
-        tmp<surfaceVectorField> nHatfv
-        (
-            const volScalarField& alpha1,
-            const volScalarField& alpha2
-        ) const;
+            //- Normal to interface between two phases
+            //  Used for interface compression
+            tmp<surfaceVectorField> nHatfv
+            (
+                const volScalarField& alpha1,
+                const volScalarField& alpha2
+            ) const;
 
-        //- Normal to interface between two phases dotted with face areas
-        //  Used for interface compression
-        tmp<surfaceScalarField> nHatf
-        (
-            const volScalarField& alpha1,
-            const volScalarField& alpha2
-        ) const;
+            //- Normal to interface between two phases dotted with face areas
+            //  Used for interface compression
+            tmp<surfaceScalarField> nHatf
+            (
+                const volScalarField& alpha1,
+                const volScalarField& alpha2
+            ) const;
 
-        //- Correction for the boundary condition on the unit normal nHat on
-        //  walls to produce the correct contact angle.
-        //
-        //  The dynamic contact angle is calculated from the component of the
-        //  velocity on the direction of the interface, parallel to the wall.
-        //  Used for interface compression
-        void correctContactAngle
-        (
-            const phaseModel& alpha1,
-            const phaseModel& alpha2,
-            surfaceVectorField::Boundary& nHatb
-        ) const;
+            //- Correction for the boundary condition on the unit normal nHat on
+            //  walls to produce the correct contact angle.
+            //
+            //  The dynamic contact angle is calculated from the component of
+            //  the velocity on the direction of the interface, parallel to the
+            //  wall. Used for interface compression.
+            void correctContactAngle
+            (
+                const phaseModel& alpha1,
+                const phaseModel& alpha2,
+                surfaceVectorField::Boundary& nHatb
+            ) const;
 
-
-        //- Curvature of interface between two phases
-        //  Used for interface compression
-        tmp<volScalarField> K
-        (
-            const phaseModel& alpha1,
-            const phaseModel& alpha2
-        ) const;
+            //- Curvature of interface between two phases
+            //  Used for interface compression
+            tmp<volScalarField> K
+            (
+                const phaseModel& alpha1,
+                const phaseModel& alpha2
+            ) const;
 
 
         // Functions required by twoPhaseSystem
@@ -434,6 +430,9 @@ public:
 
             //- Return MRF zones
             inline const IOMRFZoneList& MRF() const;
+
+            //- Access the fvOptions
+            inline fv::options& fvOptions(fvMesh& mesh);
 
             //- Access the fvOptions
             inline const fv::options& fvOptions() const;
@@ -619,6 +618,14 @@ public:
                 const PtrList<surfaceScalarField>& phiKdPhifs
             ) = 0;
 
+            //- Re-normalise the flux of the phases
+            //  around the specified mixture mean
+            void setMixturePhi
+            (
+                const PtrList<surfaceScalarField>& alphafs,
+                const surfaceScalarField& phim
+            );
+
             //- Return the flux corrections for the cell-based algorithm
             virtual PtrList<surfaceScalarField> ddtCorrByAs
             (
@@ -671,6 +678,19 @@ public:
 
             //- Correct the energy transport e.g. alphat
             virtual void correctEnergyTransport();
+
+            //- Update the fluid properties for mesh changes
+            virtual void meshUpdate();
+
+            //- Correct fixed-flux BCs to be consistent with the velocity BCs
+            void correctBoundaryFlux();
+
+            void correctPhi
+            (
+                const volScalarField& p_rgh,
+                const tmp<volScalarField>& divU,
+                nonOrthogonalSolutionControl& pimple
+            );
 
 
         // IO
